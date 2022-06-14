@@ -17,6 +17,7 @@ class RCControler{
 		float getThrottleMin();
 		float getSteeringMax();
 		float getSteeringMin();
+		bool isEnabled();
 		
 		
 	protected :

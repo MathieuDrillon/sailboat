@@ -31,27 +31,41 @@ double steering;
 double throttlePercent;
 double steeringPercent;
 
+Vector<double> Throttles;
+Vector<double> Steerings;
+
+int ThrottlesPosMax;
+int SteeringsPosMax;
+int ThrottlesPosMin;
+int SteeringsPosMin;
+
 int heading;
 double windSpeed;
 
-unsigned int yaw16, yaw8;
-double pitch, roll;
+unsigned int yaw8;
+double yaw16, pitch, roll;
 
 double Lat, Long, Speed;
 
 //---------------------
 
+double throttlePercentPrecPrec = (RC.get_throttle()-throttleMin)*100/(throttleMax-throttleMin);
+double steeringPercentPrecPrec = (RC.get_steering()-steeringMin)*100/(steeringMax-steeringMin);
 double throttlePercentPrec = (RC.get_throttle()-throttleMin)*100/(throttleMax-throttleMin);
 double steeringPercentPrec = (RC.get_steering()-steeringMin)*100/(steeringMax-steeringMin);
+
 int headingPrec = windD.getHeading();
 
 //--------------------
 
 bool printHeading;
 
+int cmpt;
+
+
 //--------------------
 
-Timer<5, millis, void*> timer;
+Timer<5, millis, void *> timer;
 
 
 void isr_rotation_arduino()
@@ -59,22 +73,68 @@ void isr_rotation_arduino()
   windS.isr_rotation();
 };
 
-
-void setup() {
-
-  Serial.begin(115200);
-  RC.init();
-  servo.init();
-  windD.init();
-  windS.init();
-  compass.init();
-  Gps.init();
-  attachInterrupt(digitalPinToInterrupt(windS.getWindSpeedPin()), isr_rotation_arduino, FALLING);
-  Serial.print("ThrottlePercent  --  SteeringPercent  --  Heading  --  WindSpeed  --  Roll  --  Pitch  --  Yaw8  --  Yaw16  --  Latitude  --  Longitude");
-
+int posMax(Vector<double> vec)
+{ 
+  int n = vec.size();
+  int pos_max = 0;
+  double maximum = vec[0];
+  for (int i = 0; i < n; i++)
+  {
+    if (vec[i] > maximum)
+    {
+      maximum = vec[i];
+      pos_max = i  ;
+    }  
+  }
+  return pos_max;
 }
 
-void printAll()
+int posMin(Vector<double> vec)
+{ 
+  int n = vec.size();
+  int pos_min = 0;
+  double minimum = vec[0];
+  for (int i = 0; i < n; i++)
+  {
+    if (vec[i] < minimum)
+    {
+      minimum = vec[i];  
+      pos_min = i;
+    }  
+  }
+  return pos_min;
+}
+
+
+void Print(Vector<double> vec)
+{
+  int n = vec.size();
+  Serial.print("<");
+  for (int i = 0; i < n-1; i++)
+  {
+    Serial.print(vec[i]);
+    Serial.print(",");
+  }
+  Serial.print(vec[n-1]);
+  Serial.print(">");  
+}
+
+
+void Println(Vector<double> vec)
+{
+  int n = vec.size();
+  Serial.print("<");
+  for (int i = 0; i < n-1; i++)
+  {
+    Serial.print(vec[i]);
+    Serial.print(",");
+  }
+  Serial.print(vec[n-1]);
+  Serial.println(">");  
+}
+
+
+bool printAll(void *)
 {
   //printing the RCCommande
   
@@ -118,7 +178,7 @@ void printAll()
   Serial.print("  --  ");
   Serial.print(yaw8);
   Serial.print("  --  ");
-  Serial.print(yaw16);
+  Serial.print(yaw16, DEC);
 
   //----------------------
 
@@ -131,32 +191,83 @@ void printAll()
   Serial.print("  --  ");
   Serial.println(Long,6);
 
-  
+  return true;
 }
 
-void getRCToControlServos()
+bool getRCToControlServos(void *)
 {
-  throttle = RC.get_throttle();
-  steering = RC.get_steering();
-
-  throttlePercent = (throttle-throttleMin)*100/(throttleMax-throttleMin);
-  steeringPercent = (steering-steeringMin)*100/(steeringMax-steeringMin);
+  while (RC.isEnabled())
+  {
   
-
-  if (abs(throttlePercent-throttlePercentPrec)>3)
-  {
-  servo.SetRotation(1,throttlePercent);
-  throttlePercentPrec = throttlePercent;
-  }
-
-  if (abs(steeringPercent-steeringPercentPrec)>2)
-  {
-  servo.SetRotation(0,steeringPercent);
-  steeringPercentPrec = steeringPercent;
+    double StorageArrayThr[4];
+    double StorageArraySte[4];
+  
+  //initiate the Vectors
+  
+    Throttles.setStorage(StorageArrayThr);
+    Steerings.setStorage(StorageArraySte);
+  
+  //get 4 values, spaced by 25ms each
+    
+    for (int i = 0; i < 4; i++)
+    {
+      Throttles.push_back(RC.get_throttle());
+      Steerings.push_back(RC.get_steering());
+      if (i < 3){delay(25);}     
+    }
+  
+  //get the extremums in order to get rid of it and thus of non accurate values
+  
+    int maxiThr = posMax(Throttles);
+    int miniThr = posMin(Throttles);
+    
+    Throttles.remove(maxiThr);
+    Throttles.remove(miniThr);
+  
+  //mean of the other two values to smoothen
+  
+    throttle = (Throttles[0]+Throttles[1])/2;
+  
+  //same for the steering
+    
+    Steerings.remove(posMax(Steerings));
+    Steerings.remove(posMin(Steerings));
+  
+    steering = (Steerings[0]+Steerings[1])/2;
+  
+  //calculate the percentage of angle that we want
+    
+    throttlePercent = (throttle-throttleMin)*100/(throttleMax-throttleMin);
+    throttlePercent = max(min(throttlePercent,100),0);
+    steeringPercent = (steering-steeringMin)*100/(steeringMax-steeringMin);
+    steeringPercent = max(min(steeringPercent,100),0);
+  
+    Serial.print("throttle% : ");
+    Serial.println(throttlePercent);
+  
+    Serial.print("steering% : ");
+    Serial.println(steeringPercent);
+  
+  //send the instruction if its new value is significantly different from the last one (3% and 2%)
+  
+    if (abs(throttlePercent-throttlePercentPrec) > 3)// && abs(throttlePercent-throttlePercentPrec)<5)
+    {
+      servo.SetRotation(1,throttlePercent);
+      throttlePercentPrec = throttlePercent;
+    }
+  
+    if (abs(steeringPercent-steeringPercentPrec) > 2)// && abs(steeringPercentPrecPrec-steeringPercent) < 2)
+    {
+      servo.SetRotation(0,steeringPercent); 
+      steeringPercentPrec = steeringPercent;
+    }
+  
+    //Serial.println("we got the RC !");
+    return true;
   }
 }
 
-void getWindHeadingAndSpeed()
+bool getWindHeading(void *)
 {
   windD.Update();
   heading = windD.getHeading();
@@ -164,26 +275,63 @@ void getWindHeadingAndSpeed()
   if (abs(heading-headingPrec)>3)
   {
     printHeading = true;
-    headingPrec = heading;  
+    headingPrec = heading;
+    //Serial.println("we got the wind heading !");  
   }
+}
 
+bool getWindSpeed(void *)
+{
   windS.Update();
   windSpeed = windS.getSpeed();
+  //Serial.println("we got the wind speed !");
+  return true;
 }
 
-void getCompassData()
+bool getCompassData(void *)
 {
-  roll = compass.getRoll();
-  pitch = compass.getPitch();
-  yaw8 = compass.getAngle8();
   yaw16 = compass.getAngle16();
+  yaw8 = compass.getAngle8();
+  pitch = compass.getPitch();
+  roll = compass.getRoll();
+  
+  //Serial.println("we got the compass !");
+  return true;
 }
 
-void getGPSData()
+bool getGPSData(void *)
 {
   Gps.Update();
   Lat = Gps.getLat();
   Long = Gps.getLong();
+  //Serial.println("we got the GPS !");
+  return true;
+}
+
+void setup() {
+
+  Serial.begin(115200);
+  RC.init();
+  servo.init();
+  windD.init();
+  windS.init();
+  compass.init();
+  Gps.init();
+  attachInterrupt(digitalPinToInterrupt(windS.getWindSpeedPin()), isr_rotation_arduino, FALLING);
+  Serial.print("ThrottlePercent  --  SteeringPercent  --  Heading  --  WindSpeed  --  Roll  --  Pitch  --  Yaw8  --  Yaw16  --  Latitude  --  Longitude");
+
+  timer.every(80, getRCToControlServos);
+  delay(1000);
+  /*timer.every(300, getWindHeading);
+  timer.every(300, getWindSpeed);
+  delay(1000);
+  timer.every(100, getCompassData);
+  delay(1000);
+  timer.every(1000, getGPSData);
+  delay(1000);
+  timer.every(100, printAll);
+  delay(1000);
+  */
 }
 
 void loop() {
@@ -191,17 +339,18 @@ void loop() {
 
   printHeading = false;
 
-  getRCToControlServos();
+  //getRCToControlServos();
 
-  getWindHeadingAndSpeed();
+  //getWindHeadingAndSpeed();
   
-  getCompassData();
+  //getCompassData();
 
-  getGPSData();
+  //getGPSData();
 
-  printAll();
+  //printAll();
+
+  timer.tick();
   
-  
-  delay(20);
+  //delay(20);
   
 }

@@ -15,8 +15,20 @@ void RCControler::init()
 	const int ThrottlePulseMin = 1000;
 	const int ThrottlePulseMax = 2000;
 		
+	pinMode(SteeringSignalPin,INPUT);
+	pinMode(ThrottleSignalPin,INPUT);		
+	
 	m_steering.setRange(SteeringPulseMin,SteeringPulseMax);
 	m_throttle.setRange(ThrottlePulseMin,ThrottlePulseMax);
+
+}
+
+bool RCControler::isEnabled()
+{
+	Serial.print("digitalRead(SteeringSignalPin) : ");
+	Serial.println(digitalRead(SteeringSignalPin));
+	//return 1;
+	return (digitalRead(SteeringSignalPin) == HIGH || digitalRead(ThrottleSignalPin) == HIGH);
 
 }
 		
