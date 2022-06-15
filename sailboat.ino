@@ -60,6 +60,8 @@ int headingPrec = windD.getHeading();
 
 bool printHeading;
 
+bool RCOn;
+
 int cmpt;
 
 
@@ -196,9 +198,8 @@ bool printAll(void *)
 
 bool getRCToControlServos(void *)
 {
-  while (RC.isEnabled())
+  if(RCOn)
   {
-  
     double StorageArrayThr[4];
     double StorageArraySte[4];
   
@@ -262,49 +263,62 @@ bool getRCToControlServos(void *)
       steeringPercentPrec = steeringPercent;
     }
   
-    //Serial.println("we got the RC !");
-    return true;
+    Serial.println("we got the RC !");
   }
+  return true;
 }
 
 bool getWindHeading(void *)
 {
-  windD.Update();
-  heading = windD.getHeading();
-
-  if (abs(heading-headingPrec)>3)
+  if (!RCOn)
   {
-    printHeading = true;
-    headingPrec = heading;
-    //Serial.println("we got the wind heading !");  
+    windD.Update();
+    heading = windD.getHeading();
+  
+    if (abs(heading-headingPrec)>3)
+    {
+      printHeading = true;
+      headingPrec = heading;
+      Serial.println("we got the wind heading !");  
+    }
   }
+  return true;
 }
 
 bool getWindSpeed(void *)
 {
-  windS.Update();
-  windSpeed = windS.getSpeed();
-  //Serial.println("we got the wind speed !");
+  if (!RCOn)
+  {
+    windS.Update();
+    windSpeed = windS.getSpeed();
+    Serial.println("we got the wind speed !");
+  }
   return true;
 }
 
 bool getCompassData(void *)
 {
-  yaw16 = compass.getAngle16();
-  yaw8 = compass.getAngle8();
-  pitch = compass.getPitch();
-  roll = compass.getRoll();
+  if (!RCOn)
+  {
+    yaw16 = compass.getAngle16();
+    yaw8 = compass.getAngle8();
+    pitch = compass.getPitch();
+    roll = compass.getRoll();
+    Serial.println("we got the compass !");
+  }
   
-  //Serial.println("we got the compass !");
   return true;
 }
 
 bool getGPSData(void *)
 {
-  Gps.Update();
-  Lat = Gps.getLat();
-  Long = Gps.getLong();
-  //Serial.println("we got the GPS !");
+  if (!RCOn)
+  {
+    Gps.Update();
+    Lat = Gps.getLat();
+    Long = Gps.getLong();
+    Serial.println("we got the GPS !");
+  }
   return true;
 }
 
@@ -322,7 +336,7 @@ void setup() {
 
   timer.every(80, getRCToControlServos);
   delay(1000);
-  /*timer.every(300, getWindHeading);
+  timer.every(300, getWindHeading);
   timer.every(300, getWindSpeed);
   delay(1000);
   timer.every(100, getCompassData);
@@ -331,13 +345,15 @@ void setup() {
   delay(1000);
   timer.every(100, printAll);
   delay(1000);
-  */
+  
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
 
   printHeading = false;
+
+  RCOn = RC.isEnabled();
 
   //getRCToControlServos();
 
