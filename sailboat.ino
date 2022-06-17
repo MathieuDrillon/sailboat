@@ -7,8 +7,10 @@
 
 #include <Vector.h>
 #include <arduino-timer.h>
-
-//ligne qui ne sert a rien
+#include <SPI.h>
+#include <SD.h>
+#include <FileIO.h> // Bibliothèque pour la gestion de fichier
+#include <Process.h>
 
 
 RCControler RC;
@@ -58,11 +60,26 @@ int headingPrec = windD.getHeading();
 
 //--------------------
 
+const int chipSelect = 53;
+
+File GPSLog;
+File WHLog;
+File WSLog;
+File RCLog;
+File CMPSLog;
+
+File RCLogLocal;
+
+bool RewriteLogs = true;
+
+//-------------------
+
 bool printHeading;
 
 bool RCOn;
 
-int cmpt;
+uint32_t cmpt;
+uint32_t cmpt_lim = 200000;
 
 
 //--------------------
@@ -196,8 +213,79 @@ bool printAll(void *)
   return true;
 }
 
+void LogsInit()
+{
+  GPSLog = SD.open("GPSLog.txt", FILE_WRITE);
+
+  GPSLog.println("Those are the GPS logs with lat (left) and long (right) next to each other");
+  GPSLog.println(" ");
+  GPSLog.println(" ");
+
+  GPSLog.close();
+
+  delay(100);
+
+  if (!SD.exists("GPSLog.txt")){Serial.println("GPSLog doesn't exist mais ptn pourquoiiiii");}
+
+  WHLog = SD.open("WHLog.txt", FILE_WRITE);
+  
+  WHLog.println("Those are the WindHeading logs");
+  WHLog.println(" ");
+  WHLog.println(" ");
+  
+  WHLog.close();
+
+  delay(100);
+
+  if (!SD.exists("WHLog.txt")){Serial.println("WHLog doesn't exist mais ptn pourquoiiiii");}
+
+  WSLog = SD.open("WSLog.txt", FILE_WRITE);
+  
+  WSLog.println("Those are the WindSpeed logs in IS units");
+  WSLog.println(" ");
+  WSLog.println(" ");
+  
+  WSLog.close();
+
+  delay(100);
+  
+  if (!SD.exists("WSLog.txt")){Serial.println("WSLog doesn't exist mais ptn pourquoiiiii");}
+
+  RCLog = SD.open("RCLog.txt", FILE_WRITE);
+  
+  RCLog.println("Those are the RC logs with throttle (left) and steering (right) next to each other");
+  RCLog.println(" ");
+  RCLog.println(" ");
+
+  RCLog.close();
+
+  delay(100);
+  
+  if (!SD.exists("RCLog.txt")){Serial.println("RCLog doesn't exist mais ptn pourquoiiiii");}
+
+
+  CMPSLog = SD.open("CMPSLog.txt", FILE_WRITE);
+  
+  CMPSLog.println("Those are the Compass logs with yaw encoded on 16bits, then yaw on 8 bits, then pitch and eventually roll");
+  CMPSLog.println(" ");
+  CMPSLog.println(" ");
+  
+  CMPSLog.close();
+
+  delay(100);
+
+  if (!SD.exists("CMPSLog.txt")){Serial.println("CMPSLog doesn't exist mais ptn pourquoiiiii");}
+
+}
+
 bool getRCToControlServos(void *)
 {
+  if(cmpt < cmpt_lim)
+  {
+    RCLog = SD.open("RCLog.txt", FILE_WRITE);
+    RCLogLocal = FileSystem.open("~/Bureau/stage_2A/logs/RCLog.txt", FILE_APPEND);
+  }
+  
   if(RCOn)
   {
     double StorageArrayThr[4];
@@ -245,9 +333,21 @@ bool getRCToControlServos(void *)
   
     Serial.print("throttle% : ");
     Serial.println(throttlePercent);
+    
   
     Serial.print("steering% : ");
     Serial.println(steeringPercent);
+
+    if (cmpt < cmpt_lim)
+    {
+      RCLog.print(throttlePercent);
+      RCLog.print("  ");
+      RCLog.println(steeringPercent);
+
+      RCLogLocal.print(throttlePercent);
+      RCLogLocal.print("  ");
+      RCLogLocal.println(steeringPercent);
+    }
   
   //send the instruction if its new value is significantly different from the last one (3% and 2%)
   
@@ -264,7 +364,17 @@ bool getRCToControlServos(void *)
     }
   
     Serial.println("we got the RC !");
+
   }
+  else
+  {
+    RCLog.println("RC turned off");
+    RCLogLocal.println("RC turned off");
+  }
+  RCLog.close();
+  RCLogLocal.flush();
+  RCLogLocal.close()
+  
   return true;
 }
 
@@ -272,6 +382,7 @@ bool getWindHeading(void *)
 {
   if (!RCOn)
   {
+    WHLog = SD.open("WHLog.txt", FILE_WRITE);
     windD.Update();
     heading = windD.getHeading();
   
@@ -281,6 +392,10 @@ bool getWindHeading(void *)
       headingPrec = heading;
       Serial.println("we got the wind heading !");  
     }
+    
+    WHLog.println(heading);
+    WHLog.close();
+    
   }
   return true;
 }
@@ -289,9 +404,15 @@ bool getWindSpeed(void *)
 {
   if (!RCOn)
   {
+    WSLog = SD.open("WSLog.txt", FILE_WRITE);
     windS.Update();
     windSpeed = windS.getSpeed();
+    
     Serial.println("we got the wind speed !");
+    
+    WSLog.println(windSpeed);
+    WSLog.close();
+    
   }
   return true;
 }
@@ -300,12 +421,25 @@ bool getCompassData(void *)
 {
   if (!RCOn)
   {
+    CMPSLog = SD.open("CMPSLog.txt", FILE_WRITE);
     yaw16 = compass.getAngle16();
     yaw8 = compass.getAngle8();
     pitch = compass.getPitch();
     roll = compass.getRoll();
+    
     Serial.println("we got the compass !");
+    
+    CMPSLog.print(yaw16);
+    CMPSLog.print("  ");
+    CMPSLog.print(yaw8);
+    CMPSLog.print("  ");
+    CMPSLog.print(pitch);
+    CMPSLog.print("  ");
+    CMPSLog.println(roll);
+
+    CMPSLog.close();
   }
+}
   
   return true;
 }
@@ -314,23 +448,57 @@ bool getGPSData(void *)
 {
   if (!RCOn)
   {
+    GPSLog = SD.open("GPSLog.txt", FILE_WRITE);
     Gps.Update();
     Lat = Gps.getLat();
     Long = Gps.getLong();
+    
     Serial.println("we got the GPS !");
+
+      GPSLog.print(Lat);
+      GPSLog.print("  ");
+      GPSLog.println(Long);
+    
+      GPSLog.close();
+    }
   }
   return true;
 }
 
 void setup() {
 
+  Bridge.begin();
   Serial.begin(115200);
+  FileSystem.begin();
+  
   RC.init();
   servo.init();
   windD.init();
   windS.init();
   compass.init();
   Gps.init();
+
+  Serial.print("Initializing SD card...");
+
+  if (!SD.begin()) {
+    Serial.println("initialization failed!");
+    return;
+  }
+  Serial.println("initialization done.");
+
+  if(RewriteLogs)
+  {
+    Serial.println("logs are about to be deleted and recreated");
+    SD.remove("GPSLog.txt");
+    SD.remove("WHLog.txt");
+    SD.remove("WSLog.txt");
+    SD.remove("CMPSLog.txt");
+    SD.remove("RCLog.txt");
+  
+    LogsInit();
+  }
+
+  
   attachInterrupt(digitalPinToInterrupt(windS.getWindSpeedPin()), isr_rotation_arduino, FALLING);
   Serial.print("ThrottlePercent  --  SteeringPercent  --  Heading  --  WindSpeed  --  Roll  --  Pitch  --  Yaw8  --  Yaw16  --  Latitude  --  Longitude");
 
@@ -345,6 +513,8 @@ void setup() {
   delay(1000);
   timer.every(100, printAll);
   delay(1000);
+
+  cmpt = 0;
   
 }
 
@@ -355,18 +525,9 @@ void loop() {
 
   RCOn = RC.isEnabled();
 
-  //getRCToControlServos();
-
-  //getWindHeadingAndSpeed();
-  
-  //getCompassData();
-
-  //getGPSData();
-
-  //printAll();
+  cmpt ++;
+  Serial.println(cmpt);
 
   timer.tick();
-  
-  //delay(20);
   
 }

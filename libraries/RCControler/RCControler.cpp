@@ -25,11 +25,7 @@ void RCControler::init()
 
 bool RCControler::isEnabled()
 {
-	Serial.print("digitalRead(SteeringSignalPin) : ");
-	Serial.println(digitalRead(SteeringSignalPin));
-	//return 1;
-	return (digitalRead(SteeringSignalPin) == HIGH || digitalRead(ThrottleSignalPin) == HIGH);
-
+	return (m_steering.read() || m_throttle.read());
 }
 		
 double RCControler::get_throttle()
