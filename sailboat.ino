@@ -9,8 +9,6 @@
 #include <arduino-timer.h>
 #include <SPI.h>
 #include <SD.h>
-#include <FileIO.h> // Bibliothèque pour la gestion de fichier
-#include <Process.h>
 
 
 RCControler RC;
@@ -48,6 +46,7 @@ unsigned int yaw8;
 double yaw16, pitch, roll;
 
 double Lat, Long, Speed;
+double posX, posY;
 
 //---------------------
 
@@ -57,6 +56,8 @@ double throttlePercentPrec = (RC.get_throttle()-throttleMin)*100/(throttleMax-th
 double steeringPercentPrec = (RC.get_steering()-steeringMin)*100/(steeringMax-steeringMin);
 
 int headingPrec = windD.getHeading();
+
+SoftwareSerial Xbee = SoftwareSerial(4,5);
 
 //--------------------
 
@@ -82,9 +83,40 @@ uint32_t cmpt;
 uint32_t cmpt_lim = 200000;
 
 
-//--------------------
 
-Timer<5, millis, void *> timer;
+
+
+
+
+
+
+
+
+
+
+
+
+//-------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Timer<8, millis, void *> timer;
 
 
 void isr_rotation_arduino()
@@ -153,66 +185,6 @@ void Println(Vector<double> vec)
 }
 
 
-bool printAll(void *)
-{
-  //printing the RCCommande
-  
-  Serial.print(throttlePercent);
-  Serial.print("%      ");
-  Serial.print(steeringPercent);
-  Serial.print("%      ");
-  
-  //-------------------------
-
-  Serial.print("  --  ");
-
-  //printing the heading or not
-
-  if (printHeading)
-  {
-    Serial.print(heading);
-  }
-  else
-  {
-    Serial.print("   ");   
-  }
-
-  //------------------------
-
-  Serial.print("  --  ");
-
-  //printing Windspeed
-  
-  Serial.print(windSpeed);
-
-  //------------------------
-
-  Serial.print("  --  ");
-
-  //printing Compass values
-
-  Serial.print(roll);
-  Serial.print("  --  ");
-  Serial.print(pitch);
-  Serial.print("  --  ");
-  Serial.print(yaw8);
-  Serial.print("  --  ");
-  Serial.print(yaw16, DEC);
-
-  //----------------------
-
-  Serial.print("  --  ");
-
-  //printing GPS values
-
-  
-  Serial.print(Lat,6);
-  Serial.print("  --  ");
-  Serial.println(Long,6);
-
-  return true;
-}
-
 void LogsInit()
 {
   GPSLog = SD.open("GPSLog.txt", FILE_WRITE);
@@ -278,13 +250,102 @@ void LogsInit()
 
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+//-------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool printAll(void *)
+{
+  //printing the RCCommande
+  
+  Serial.print(throttlePercent);
+  Serial.print("%      ");
+  Serial.print(steeringPercent);
+  Serial.print("%      ");
+  
+  //-------------------------
+
+  Serial.print("  --  ");
+
+  //printing the heading or not
+
+  if (printHeading)
+  {
+    Serial.print(heading);
+  }
+  else
+  {
+    Serial.print("   ");   
+  }
+
+  //------------------------
+
+  Serial.print("  --  ");
+
+  //printing Windspeed
+  
+  Serial.print(windSpeed);
+
+  //------------------------
+
+  Serial.print("  --  ");
+
+  //printing Compass values
+
+  Serial.print(roll);
+  Serial.print("  --  ");
+  Serial.print(pitch);
+  Serial.print("  --  ");
+  Serial.print(yaw8);
+  Serial.print("  --  ");
+  Serial.print(yaw16, DEC);
+
+  //----------------------
+
+  Serial.print("  --  ");
+
+  //printing GPS values
+
+  
+  Serial.print(Lat,6);
+  Serial.print("  --  ");
+  Serial.println(Long,6);
+
+  return true;
+}
+
+
+
 bool getRCToControlServos(void *)
 {
-  if(cmpt < cmpt_lim)
-  {
-    RCLog = SD.open("RCLog.txt", FILE_WRITE);
-    RCLogLocal = FileSystem.open("~/Bureau/stage_2A/logs/RCLog.txt", FILE_APPEND);
-  }
+  RCLog = SD.open("RCLog.txt", FILE_WRITE);
   
   if(RCOn)
   {
@@ -338,16 +399,11 @@ bool getRCToControlServos(void *)
     Serial.print("steering% : ");
     Serial.println(steeringPercent);
 
-    if (cmpt < cmpt_lim)
-    {
-      RCLog.print(throttlePercent);
-      RCLog.print("  ");
-      RCLog.println(steeringPercent);
+  //print in the logs
 
-      RCLogLocal.print(throttlePercent);
-      RCLogLocal.print("  ");
-      RCLogLocal.println(steeringPercent);
-    }
+    RCLog.print(throttlePercent);
+    RCLog.print("  ");
+    RCLog.println(steeringPercent);
   
   //send the instruction if its new value is significantly different from the last one (3% and 2%)
   
@@ -363,17 +419,15 @@ bool getRCToControlServos(void *)
       steeringPercentPrec = steeringPercent;
     }
   
-    Serial.println("we got the RC !");
+    //Serial.println("we got the RC !");
 
   }
   else
   {
     RCLog.println("RC turned off");
-    RCLogLocal.println("RC turned off");
   }
+  
   RCLog.close();
-  RCLogLocal.flush();
-  RCLogLocal.close()
   
   return true;
 }
@@ -439,8 +493,6 @@ bool getCompassData(void *)
 
     CMPSLog.close();
   }
-}
-  
   return true;
 }
 
@@ -455,21 +507,59 @@ bool getGPSData(void *)
     
     Serial.println("we got the GPS !");
 
-      GPSLog.print(Lat);
-      GPSLog.print("  ");
-      GPSLog.println(Long);
+    GPSLog.print(Lat);
+    GPSLog.print("  ");
+    GPSLog.println(Long);
     
-      GPSLog.close();
-    }
+    GPSLog.close();
   }
   return true;
 }
 
-void setup() {
+bool getControl(void *)
+{
+  
+  //controler.set_x()
 
-  Bridge.begin();
-  Serial.begin(115200);
-  FileSystem.begin();
+  return true;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+//-------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void setup() {
+  
+  Serial.begin(57600);
+  Xbee.begin(57600);
   
   RC.init();
   servo.init();
@@ -482,9 +572,8 @@ void setup() {
 
   if (!SD.begin()) {
     Serial.println("initialization failed!");
-    return;
   }
-  Serial.println("initialization done.");
+  else {Serial.println("initialization done.");}
 
   if(RewriteLogs)
   {
@@ -511,10 +600,8 @@ void setup() {
   delay(1000);
   timer.every(1000, getGPSData);
   delay(1000);
-  timer.every(100, printAll);
-  delay(1000);
-
-  cmpt = 0;
+  //timer.every(100, printAll);
+  //delay(1000);
   
 }
 
@@ -524,9 +611,6 @@ void loop() {
   printHeading = false;
 
   RCOn = RC.isEnabled();
-
-  cmpt ++;
-  Serial.println(cmpt);
 
   timer.tick();
   

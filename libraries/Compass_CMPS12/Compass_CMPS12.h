@@ -18,6 +18,7 @@ class Compass
 		double getAngle16();
 		double getPitch();
 		double getRoll();
+		void calibrate();
 		
 	protected :
 	
@@ -28,6 +29,11 @@ class Compass
 		double pitch, roll, angle16, angle16_high, angle16_low; 
 		
 		SoftwareSerial CMPS12 = SoftwareSerial(10,11);
+		
+		bool calYaw16 = false;
+		bool calYaw8 = false;
+		bool calPitch = false;
+		bool calRoll = false;
 	
 	//private :
 
