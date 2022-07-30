@@ -86,6 +86,7 @@ bool RCOn;
 //-------------------
 
 //line following
+COORD_XY coords0;
 double a[2] = {0,0};
 double b[2] = {10,7};
 
@@ -257,7 +258,7 @@ void LogsInit()
 
 }
 
-COORD_XY GPSToCart(double Latitude, double Longitude)
+COORD_XY GPSToCart0(double Latitude, double Longitude)
 {
   double R = 6371000;
   
@@ -267,6 +268,20 @@ COORD_XY GPSToCart(double Latitude, double Longitude)
   COORD_XY CoordsCart;
   CoordsCart.x = x_cart;
   CoordsCart.y = y_cart;
+
+  return CoordsCart;
+}
+
+COORD_XY GPSToCart(double Latitude, double Longitude)
+{
+  double R = 6371000;
+  
+  double x_cart = R*cos(Latitude)*cos(Longitude);
+  double y_cart = R*cos(Latitude)*sin(Longitude);  
+
+  COORD_XY CoordsCart;
+  CoordsCart.x = x_cart - coords0.x;
+  CoordsCart.y = y_cart - coords0.y;
 
   return CoordsCart;
 }
@@ -569,6 +584,7 @@ bool getControl(void *)
   controler.Reg(a,b,realHeading);
   double deltar = controler.get_deltar();
   double deltasmax = controler.get_deltasmax();
+  // a faire : transformer la valeur des delta en un pourcentage servomoteurs
 
   return true;
 }
@@ -636,9 +652,12 @@ void setup() {
     LogsInit();
   }
 
+  //initiate the cartesian coordonates
+  coords0 = GPSToCart0(Gps.getLat(), Gps.getLong());
+
   
   attachInterrupt(digitalPinToInterrupt(windS.getWindSpeedPin()), isr_rotation_arduino, FALLING);
-  Serial.print("ThrottlePercent  --  SteeringPercent  --  Heading  --  WindSpeed  --  Roll  --  Pitch  --  Yaw8  --  Yaw16  --  Latitude  --  Longitude");
+  //Serial.print("ThrottlePercent  --  SteeringPercent  --  Heading  --  WindSpeed  --  Roll  --  Pitch  --  Yaw8  --  Yaw16  --  Latitude  --  Longitude");
 
   timer.every(80, getRCToControlServos);
   delay(1000);
@@ -666,3 +685,6 @@ void loop() {
   timer.tick();
   
 }
+
+
+//a faire : refaire la liaison xbee en fonction des marqueurs de debut de ligne precises dans get_xbee.py
