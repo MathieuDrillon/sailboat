@@ -23,10 +23,10 @@ Controler::Controler()
 
 }
 
-//int Controler::get_x()
-//{
-//	return x;
-//}
+X_VECTOR Controler::get_x()
+{
+	return X;
+}
 
 
 double Controler::get_deltasmax()
@@ -42,14 +42,14 @@ double Controler::get_deltar()
 
 void Controler::set_x(double pos_x, double pos_y, double theta, double v)
 {
-	x[0] = pos_x; x[1] = pos_y; x[2] = theta; x[3] = v; x[4] = 0;
+	X.x = pos_x; X.y = pos_y; X.theta = theta; X.v = v;
 }
 
 void Controler::Reg(double a[2], double b[2], double psi)
 {
-	m_theta = x[2];
-	m_pos_x = x[0];
-	m_pos_y = x[1];
+	m_theta = X.theta;
+	m_pos_x = X.x;
+	m_pos_y = X.y;
 	double b_a[2] = {b[0]-a[0],b[1]-a[1]};
 	double norme = norm(b_a);
 	double matr[] = {b_a[0]/norme, m_pos_x-a[0], b_a[1]/norme, m_pos_y-a[1]};
@@ -64,6 +64,6 @@ void Controler::Reg(double a[2], double b[2], double psi)
 	{
 		theta_bar = M_PI + psi - zeta*q;
 	}
-	deltar = (2/M_PI)*atan(tan(0.5*(m_theta-theta_bar)));
-	deltasmax = (M_PI/4)*(cos(psi-theta_bar)+1);
+	deltar = (2/M_PI)*atan(tan(0.5*(m_theta-theta_bar))); //returns value between -1 and 1
+	deltasmax = (M_PI/4)*(cos(psi-theta_bar)+1); //returns value between 0 and PI/2
 }

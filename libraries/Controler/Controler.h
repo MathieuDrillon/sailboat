@@ -3,6 +3,18 @@
 
 #include <math.h>
 
+struct COORD_XY {
+	double x = 0;
+	double y = 0;
+};
+
+struct X_VECTOR {
+	double x = 0; 
+	double y = 0;
+	double theta = 0;
+	double v = 0;
+};
+
 class Controler{
 
 	public :
@@ -10,15 +22,16 @@ class Controler{
 		Controler();
 		void Reg(double a[2], double b[2], double psi);
 	
-		//int *get_x();	
+		X_VECTOR get_x();	
 		void set_x(double pos_x, double pos_y, double theta, double v);
 		//void set_line(double a[2], double b[2]);
 		double get_deltasmax();
 		double get_deltar();
-		
-		double x[5];
+
 		
 	protected :
+		
+		X_VECTOR X;
 		
 		int q;
 		

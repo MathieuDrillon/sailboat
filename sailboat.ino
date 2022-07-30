@@ -4,6 +4,7 @@
 #include "WindSpeed.h"
 #include "Compass_CMPS12.h"
 #include "GPS.h"
+#include "Controler.h"
 
 #include <Vector.h>
 #include <arduino-timer.h>
@@ -17,9 +18,10 @@ WindDirection windD;
 WindSpeed windS;
 Compass compass;
 GPS Gps;
+Controler controler;
 
 //--------------------
-
+//RC variables
 float throttleMax = RC.getThrottleMax();
 float throttleMin = RC.getThrottleMin();
 float steeringMax = RC.getSteeringMax();
@@ -39,14 +41,18 @@ int SteeringsPosMax;
 int ThrottlesPosMin;
 int SteeringsPosMin;
 
+//wind variables
 int heading;
 double windSpeed;
 
+//compass variables
 unsigned int yaw8;
 double yaw16, pitch, roll;
 
+//GPS variables
 double Lat, Long, Speed;
 double posX, posY;
+COORD_XY Coords;
 
 //---------------------
 
@@ -60,7 +66,7 @@ int headingPrec = windD.getHeading();
 SoftwareSerial Xbee = SoftwareSerial(4,5);
 
 //--------------------
-
+//Logs options
 const int chipSelect = 53;
 
 File GPSLog;
@@ -68,8 +74,6 @@ File WHLog;
 File WSLog;
 File RCLog;
 File CMPSLog;
-
-File RCLogLocal;
 
 bool RewriteLogs = true;
 
@@ -79,8 +83,11 @@ bool printHeading;
 
 bool RCOn;
 
-uint32_t cmpt;
-uint32_t cmpt_lim = 200000;
+//-------------------
+
+//line following
+double a[2] = {0,0};
+double b[2] = {10,7};
 
 
 
@@ -249,6 +256,44 @@ void LogsInit()
   if (!SD.exists("CMPSLog.txt")){Serial.println("CMPSLog doesn't exist mais ptn pourquoiiiii");}
 
 }
+
+COORD_XY GPSToCart(double Latitude, double Longitude)
+{
+  double R = 6371000;
+  
+  double x_cart = R*cos(Latitude)*cos(Longitude);
+  double y_cart = R*cos(Latitude)*sin(Longitude);  
+
+  COORD_XY CoordsCart;
+  CoordsCart.x = x_cart;
+  CoordsCart.y = y_cart;
+
+  return CoordsCart;
+}
+
+double TrigoToTheta(double cosTheta, double sinTheta)
+{
+  int sign;
+  if (sinTheta == 0){sign = 1;}
+  else
+  {
+    sign = abs(sinTheta)/sinTheta;
+  }
+
+  return 180*(1 + sign*(acos(cosTheta)/M_PI - 1));
+}
+
+double RealHeading(double ThetaBoatDeg, double FalseHeadingDeg)
+{
+  double degToRad = M_PI/180;
+  double ThetaBoat = degToRad*ThetaBoatDeg;
+  double FalseHeading = degToRad*FalseHeadingDeg;
+  double cosPsi = cos(ThetaBoat)*cos(FalseHeading) - sin(ThetaBoat)*sin(FalseHeading);
+  double sinPsi = sin(ThetaBoat)*cos(FalseHeading) + cos(ThetaBoat)*sin(FalseHeading);
+  return TrigoToTheta(cosPsi, sinPsi);
+}
+
+
 
 
 
@@ -419,7 +464,7 @@ bool getRCToControlServos(void *)
       steeringPercentPrec = steeringPercent;
     }
   
-    //Serial.println("we got the RC !");
+    Serial.println("we got the RC !");
 
   }
   else
@@ -518,8 +563,12 @@ bool getGPSData(void *)
 
 bool getControl(void *)
 {
-  
-  //controler.set_x()
+  Coords = GPSToCart(Lat,Long);
+  controler.set_x(Coords.x, Coords.y, yaw16, 0);
+  double realHeading = RealHeading(yaw16,heading);
+  controler.Reg(a,b,realHeading);
+  double deltar = controler.get_deltar();
+  double deltasmax = controler.get_deltasmax();
 
   return true;
 }
@@ -599,6 +648,8 @@ void setup() {
   timer.every(100, getCompassData);
   delay(1000);
   timer.every(1000, getGPSData);
+  delay(1000);
+  timer.every(100, getControl);
   delay(1000);
   //timer.every(100, printAll);
   //delay(1000);
