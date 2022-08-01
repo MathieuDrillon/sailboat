@@ -30,10 +30,10 @@ class RCControler{
 		
 	private :
 	
-		float ThrottleMax = 65.0;
-		float ThrottleMin = -69.0;
-		float SteeringMax = 75.0;
-		float SteeringMin = -80.0;
+		float ThrottleMax = 64.0;
+		float ThrottleMin = -72.0;
+		float SteeringMax = 88.0;
+		float SteeringMin = -65.0;
 };
 
 #endif

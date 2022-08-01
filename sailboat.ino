@@ -480,11 +480,16 @@ bool getRCToControlServos(void *)
     }
   
     Serial.println("we got the RC !");
-
+    
+    Xbee.print("RC throttle : ");
+    Xbee.println(throttlePercent);
+    Xbee.print("RC steering : ");
+    Xbee.println(steeringPercent);
   }
   else
   {
     RCLog.println("RC turned off");
+    Xbee.println("RC OFF");
   }
   
   RCLog.close();
@@ -509,6 +514,9 @@ bool getWindHeading(void *)
     
     WHLog.println(heading);
     WHLog.close();
+
+    Xbee.print("heading : ");
+    Xbee.println(heading);
     
   }
   return true;
@@ -526,6 +534,9 @@ bool getWindSpeed(void *)
     
     WSLog.println(windSpeed);
     WSLog.close();
+
+    Xbee.print("windSpeed : ");
+    Xbee.println(windSpeed);
     
   }
   return true;
@@ -552,6 +563,13 @@ bool getCompassData(void *)
     CMPSLog.println(roll);
 
     CMPSLog.close();
+
+    Xbee.print("compass values : ");
+    Xbee.print(yaw16);
+    Xbee.print("  ");
+    Xbee.print(pitch);
+    Xbee.print("  ");
+    Xbee.println(roll);
   }
   return true;
 }
@@ -572,6 +590,11 @@ bool getGPSData(void *)
     GPSLog.println(Long);
     
     GPSLog.close();
+
+    Xbee.print("lat/long : ");
+    Xbee.print(Lat);
+    Xbee.print("  ");
+    Xbee.println(Long);
   }
   return true;
 }
@@ -585,6 +608,10 @@ bool getControl(void *)
   double deltar = controler.get_deltar();
   double deltasmax = controler.get_deltasmax();
   // a faire : transformer la valeur des delta en un pourcentage servomoteurs
+  Xbee.print("delatsmax : ");
+  Xbee.println(deltasmax);
+  Xbee.print("deltar : ");
+  Xbee.println(deltar);
 
   return true;
 }
@@ -623,8 +650,8 @@ bool getControl(void *)
 
 void setup() {
   
-  Serial.begin(57600);
-  Xbee.begin(57600);
+  Serial.begin(9600);
+  Xbee.begin(9600);
   
   RC.init();
   servo.init();

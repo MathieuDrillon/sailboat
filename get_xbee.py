@@ -3,7 +3,7 @@ import serial
 import numpy as np
 
 ser = serial.Serial()
-ser.baudrate = 57600
+ser.baudrate = 9600
 ser.port = '/dev/ttyUSB0'
 ser.timeout = 1
 ser.open()
@@ -47,13 +47,13 @@ while(1):
 				steering = -1
 			else :
 				if current_line_d[3] =="t":
-					throttle = float(current_line_d[12:17])
+					throttle = float(current_line_d[13:])
 				elif current_line_d[3] =="s":
-					steering = float(current_line_d[12:17])
+					steering = float(current_line_d[13:])
 		elif current_line_d[:3] == "com":
 			numbers = current_line_d[16:]
 			numbers = decompose(numbers)
-			yaw, pitch, roll = numbers[0], numbers[2], numbers[3]
+			yaw, pitch, roll = numbers[0], numbers[1], numbers[2]
 		elif current_line_d[:5] == "windS":
 			numbers = current_line_d[11:]
 			numbers = decompose(numbers)
@@ -89,4 +89,6 @@ while(1):
 #lat/long :  1 . 1 1     1 0 . 0 0 
 #deltasmax :   12
 #deltar : 14
+#RC throttle : 
+#heading : 2 6
 #012345678910111213141516171819202122232425262728293031323334353637
